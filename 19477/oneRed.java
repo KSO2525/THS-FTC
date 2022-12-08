@@ -1,34 +1,20 @@
 /*
-- 1 is first
-Controls:
-    Gamepad 1 (all random functions):
-        left BUMPER BUTTON - reset all carousel and intake servos
-        right BUMPER BUTTON - turn on the carousel motor
-        left TRIGGER - intake forward
-        right TRIGGER - intake backward
-        x button - arm 1st position
-        a button - arm 2nd position
-        b button - arm 3rd position
-    Gamepad 2 (drive):
-        left analog stick - all controls that make logical
-        right analog stick - radial turns in logical order and drift
-        right BUMPER BUTTON - turn all motors off
+Kai Song
+FTC team 19477
+2022-2023 PowerPlay
+MIT LICENSE
 
-Point sequence
-    1st part:
-        score freight to shipping hub level 3
-    End Game:
-        deliver all ducks
-        fully park in warehouse
-        if extra time:
-            ***try to have shared shipping hub touching floor on our side
+Please do not offend my code. I do not claim to be a great coder, but I do claim to be good at robotics.
 
-- Servo_3 = claw tilt
-- Servo_4 = claw open/close
+Robotics:
+Mechanical
+Electrical
+Computational
+Happiness
 */
 //import FTC packages and all needed libraries for opencv, vuforia, etc
-package org.firstinspires.ftc.teamcode.vision;
 
+package org.firstinspires.ftc.teamcode.vision;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -67,6 +53,8 @@ import org.opencv.objdetect.QRCodeDetector;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.concurrent.TimeUnit;
 import java.util.Date;
@@ -74,27 +62,17 @@ import java.util.Date;
 //import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
 
 @TeleOp//set code mode to TeleOp (driver control)
-
 public class oneRed extends LinearOpMode {
-    //STATE MACHINE! (ignore for now)
-    enum grabCone {
-        LOOK,
-        CENTER,
-        CHECK,
-        INTAKE,
-        DROP,
-        DEFAULT;
-    }
     //junction height values represented as motor encoder values for GoBilda 117 rpm motor
-    final int pickup = 35;
+    final int pickup = 3;
     final int groundJunction = 1025;
-    final int lowJunction = 4570;
-    final int midJunction = 7700;
-    final int highJunction = 10500;
+    final int lowJunction = 2215;//4570
+    final int midJunction = 3870;//7700
+    final int highJunction = 5575;//10500
     final int slideClearance = 3000;
-    final float servoPole = 250.0F;
-    final float servoPick = 80.0F;
-    double slideSpeed = 2250.0;//2778 PP/S is max encoder PP/S of Gobilda 117 rpm motor
+    final float servoPole = 170.0F;
+    final float servoPick = 0.0F;
+    double slideSpeed = 2794.0;//2794 PP/S is max encoder PP/S of Gobilda 223 rpm motor
     double driveSpeed = 2796.0;//2796 PP/S is max encoder PP/S of GoBilda 312 rpm motor
     int armTarget = 0;//as encoder values
     double minContourArea = 2500.0;//minimum area that a contour is counted as a "cone" and not useless
@@ -112,10 +90,11 @@ public class oneRed extends LinearOpMode {
     DcMotorEx Motor_4;//back right
     DcMotorEx armMotor;
     Gyroscope imu;
-    Servo intakeServo;
-    CRServo wheelServo;
+    Servo intakeServo;//USE SERVOIMPLEX - refer to GM0
+    Servo wheelServo;
     DistanceSensor frontDistance;
     OpenCvWebcam webcam;
+
     private ElapsedTime runTime = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);//initialize runTime Variable with millisecond unit
     //ALL TIMES ARE IN MILLISECONDS
 
@@ -166,15 +145,14 @@ public class oneRed extends LinearOpMode {
         Motor_4 = hardwareMap.get(DcMotorEx.class, "Motor_4");
         armMotor = hardwareMap.get(DcMotorEx.class, "armMotor");
         intakeServo = hardwareMap.get(Servo.class, "intakeServo");//to move the claw, grab the cone.
-        wheelServo = hardwareMap.get(CRServo.class, "wheelServo");
+        wheelServo = hardwareMap.get(Servo.class, "wheelServo");
         frontDistance = hardwareMap.get(DistanceSensor.class, "frontDistance");
         //setting hardware directions, etc
         Motor_1.setDirection(DcMotorEx.Direction.REVERSE);
         Motor_3.setDirection(DcMotorEx.Direction.REVERSE);
         Motor_2.setDirection(DcMotorEx.Direction.FORWARD);
         Motor_4.setDirection(DcMotorEx.Direction.FORWARD);
-        armMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        //imu = hardwareMap.get(Gyroscope.class, "imu");
+        armMotor.setDirection(DcMotorEx.Direction.FORWARD);
         //should reset encoder values to 0
         Motor_1.setMode(DcMotorEx.RunMode.STOP_AND_RESET_ENCODER);
         Motor_2.setMode(DcMotorEx.RunMode.STOP_AND_RESET_ENCODER);
@@ -232,16 +210,20 @@ public class oneRed extends LinearOpMode {
         //main loop: call functions that do different tasks
         while (opModeIsActive()) {
             normal_motor();//mecanum wheel drive
-            getCone();
+            getCone();//operate the slide to preset positions and rotate the intake
             //cam();//camera statistics
-            intakeWheel();
+            claw();//operate the claw
+            telemetry.addData("arm", armMotor.getCurrentPosition());
             telemetry.update();//send telemetry data to driver hub
-            //DO NOT PUT A TELEMETRY UPDATE IN ANY OTHER FUNCTION PLEASE MAY SOMEONE HELP YOU IF YOU DO
+            //DO NOT PUT A TELEMETRY UPDATE IN ANY OTHER FUNCTION PLEASE MAY GOD HELP YOU IF YOU DO
         }
     }
 
+
+
     //all custom functions
     void getCone(){
+        //read controller inputs
         left_trig2 = this.gamepad2.left_trigger;
         right_trig2 = this.gamepad2.right_trigger;
         Dleft2 = this.gamepad2.dpad_left;
@@ -257,7 +239,7 @@ public class oneRed extends LinearOpMode {
                 sleep(50);
                 slide(armTarget);
             }
-            else if(right_trig2 > 0.0 && armTarget < 2850){
+            else if(right_trig2 > 0.0 && armTarget < 10000){
                 armTarget += 30;
                 sleep(50);
                 slide(armTarget);
@@ -286,24 +268,40 @@ public class oneRed extends LinearOpMode {
     }
 
     void normal_motor(){//mecanum wheel motor control maths + telemetry
+        //read controller inputs
         right_stick1_x = -this.gamepad1.right_stick_x;
         left_stick1_x = this.gamepad1.left_stick_x;
         left_stick1_y = -this.gamepad1.left_stick_y;
 
-        //drivetrain (somewhere you can learn more about the math to control the mecanum wheels - GOOGLE IT!)
+        //drivetrain (somewhere you can learn more about the math to control the mecanum wheels - GOOGLE IT! IDK)
         motor_denom = Math.max(Math.abs(left_stick1_y) + Math.abs(left_stick1_x) + Math.abs(right_stick1_x), 1.0);
         motor_1_pwr = (left_stick1_y + left_stick1_x + right_stick1_x)/motor_denom;//LF
         motor_2_pwr = (left_stick1_y - left_stick1_x - right_stick1_x)/motor_denom;//RF
         motor_3_pwr = (left_stick1_y - left_stick1_x + right_stick1_x)/motor_denom;//LB
         motor_4_pwr = (left_stick1_y + left_stick1_x - right_stick1_x)/motor_denom;//LR
-        Motor_1.setVelocity(motor_1_pwr * driveSpeed * motor_reduction * -1.0);
+        Motor_1.setVelocity(motor_1_pwr * driveSpeed * motor_reduction * -1.0);//use setVelocity not setPower to use the encoder and run the robot with velocity (more accurate!!!)
         Motor_2.setVelocity(motor_2_pwr * driveSpeed * motor_reduction * -1.0);
         Motor_3.setVelocity(motor_3_pwr * driveSpeed * motor_reduction * -1.0);
         Motor_4.setVelocity(motor_4_pwr * driveSpeed * motor_reduction * -1.0);
-        Motor_1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        Motor_1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);//use these statements to run using encoder - NEEDED
         Motor_2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         Motor_3.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         Motor_4.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
+
+    void claw(){//open/close claw
+        right_bump2 = this.gamepad2.right_bumper;
+        left_bump2 = this.gamepad2.left_bumper;
+
+        if(right_bump2){
+            wheelServo.setPosition(50.0/270.0);
+        }
+        else if(left_bump2){
+            wheelServo.setPosition(0.0/270.0);
+        }
+        /*else{
+            wheelServo.setPower(-0.1);
+        }*/
     }
 
     void slide(int target){//make slide move up/down using encoder values to calculate position
@@ -335,22 +333,9 @@ public class oneRed extends LinearOpMode {
         }
     }
 
-    void intakeWheel(){//turn gecko wheels to pick/drop cone
-        right_bump2 = this.gamepad2.right_bumper;
-        left_bump2 = this.gamepad2.left_bumper;
 
-        if(right_bump2){
-            wheelServo.setPower(0.25);
-        }
-        else if(left_bump2){
-            wheelServo.setPower(-0.25);
-        }
-        /*else{
-            wheelServo.setPower(-0.1);
-        }*/
-    }
-    //below is some stuff i'm expirementing with
 
+    //below is some stuff i'm experimenting with
     void centerRobotonCone(){
         //center width is 320
         if(centerColumn != 0) {//if it's 0, means there is no contour
