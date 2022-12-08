@@ -1,30 +1,16 @@
 /*
-- 1 is first
-Controls:
-    Gamepad 1 (all random functions):
-        left BUMPER BUTTON - reset all carousel and intake servos
-        right BUMPER BUTTON - turn on the carousel motor
-        left TRIGGER - intake forward
-        right TRIGGER - intake backward
-        x button - arm 1st position
-        a button - arm 2nd position
-        b button - arm 3rd position
-    Gamepad 2 (drive):
-        left analog stick - all controls that make logical
-        right analog stick - radial turns in logical order and drift
-        right BUMPER BUTTON - turn all motors off
+Kai Song
+FTC team 20848
+2022-2023 PowerPlay
+MIT LICENSE
 
-Point sequence
-    1st part:
-        score freight to shipping hub level 3
-    End Game:
-        deliver all ducks
-        fully park in warehouse
-        if extra time:
-            ***try to have shared shipping hub touching floor on our side
+Please do not offend my code. I do not claim to be a great coder, but I do claim to be good at robotics.
 
-- Servo_3 = claw tilt
-- Servo_4 = claw open/close
+Robotics:
+Mechanical
+Electrical
+Computational
+Happiness
 */
 
 package org.firstinspires.ftc.teamcode;
@@ -61,7 +47,7 @@ public class twoRed extends LinearOpMode {
     int lowJunction = 2900;
     int midJunction = 5400;
     int highJunction = 5400;
-    double slideSpeed = 2800.0;//2787 PPR is max encoder PPR of Gobilda 435 rpm motor
+    double slideSpeed = 2750.0;//2787 PPR is max encoder PPR of Gobilda 435 rpm motor
     int armTarget = 0;//as encoder values
     double driveSpeed = 2796.0;//2796 PP/S is max encoder PP/S of GoBilda 312 rpm motor
     int slidePosition = 0;
@@ -192,7 +178,7 @@ public class twoRed extends LinearOpMode {
         left_bump2 = this.gamepad2.left_bumper;
         right_bump2 = this.gamepad2.right_bumper;
         if (left_bump2 == true){
-            clawServo.setPosition(100.0/270.0);//position for OPEN CLAW
+            clawServo.setPosition(150.0/270.0);//position for OPEN CLAW
 
         }
         else if (right_bump2 == true){
